@@ -138,6 +138,29 @@ if sys.stdout.isatty():
 else:
     default_encoding = locale.getpreferredencoding().lower()
 
+def rc4(key, data):
+#all encryption algo should work on bytes
+    assert type(key)==type(data) and type(key) == type(b'')
+    state = list(range(256))
+    j = 0
+    for i in range(256):
+        j += state[i] + key[i % len(key)]
+        j &= 0xff
+        state[i], state[j] = state[j], state[i]
+
+    i = 0
+    j = 0
+    out_list = []
+    for char in data:
+        i += 1
+        i &= 0xff
+        j += state[i]
+        j &= 0xff
+        state[i], state[j] = state[j], state[i]
+        prn = state[(state[i] + state[j]) & 0xff]
+        out_list.append(char ^ prn)
+
+    return bytes(out_list)
 def maybe_print(*s):
     try: print(*s)
     except: pass
@@ -522,7 +545,8 @@ def url_save(url, filepath, bar, refer = None, is_part = False, faker = False, h
             headers = headers
         else:
             headers = {}
-        headers['Range'] = 'bytes=' + str(received) + '-'
+        if received:
+            headers['Range'] = 'bytes=' + str(received) + '-'
         if refer:
             headers['Referer'] = refer
 
@@ -973,7 +997,7 @@ def download_rtmp_url(url,title, ext,params={}, total_size=0, output_dir='.', re
     assert has_rtmpdump_installed(), "RTMPDump not installed."
     download_rtmpdump_stream(url,  title, ext,params, output_dir)
 
-def download_url_ffmpeg(url,title, ext,params={}, total_size=0, output_dir='.', refer=None, merge=True, faker=False):
+def download_url_ffmpeg(url,title, ext,params={}, total_size=0, output_dir='.', refer=None, merge=True, faker=False, stream=True):
     assert url
     if dry_run:
         print('Real URL:\n%s\n' % [url])
@@ -996,7 +1020,7 @@ def download_url_ffmpeg(url,title, ext,params={}, total_size=0, output_dir='.', 
 
     title = tr(get_filename(title))
 
-    ffmpeg_download_stream(url, title, ext, params, output_dir)
+    ffmpeg_download_stream(url, title, ext, params, output_dir, stream=stream)
 
 def playlist_not_supported(name):
     def f(*args, **kwargs):
